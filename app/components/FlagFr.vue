@@ -1,0 +1,7 @@
+<template>
+  <svg viewBox="0 0 3 2" width="24" height="16" aria-hidden="true" focusable="false">
+    <rect width="1" height="2" x="0" fill="#002395" />
+    <rect width="1" height="2" x="1" fill="#ffffff" />
+    <rect width="1" height="2" x="2" fill="#ed2939" />
+  </svg>
+</template>

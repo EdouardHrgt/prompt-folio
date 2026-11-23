@@ -22,3 +22,6 @@ logs
 .env
 .env.*
 !.env.example
+
+# Sorties du test des prompts
+scripts/output
