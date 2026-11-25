@@ -3,11 +3,14 @@
  * Ajouter un domaine = créer son dossier (roles.js + templates + index.js) et l'ajouter ici.
  */
 import gestionProjet from './gestion-projet/index.js'
+import vente from './vente/index.js'
+import redaction from './redaction/index.js'
 
 export const DOMAINS = [
   gestionProjet,
+  vente,
+  redaction,
   // Domaines prévus : affichés « bientôt » dans l'interface, sans templates.
-  { id: 'vente', slug: { fr: 'vente', en: 'sales' }, icon: 'trend', label: { fr: 'Vente', en: 'Sales' }, comingSoon: true, roles: {}, templates: [] },
   { id: 'developpement', slug: { fr: 'developpement', en: 'development' }, icon: 'code', label: { fr: 'Développement', en: 'Development' }, comingSoon: true, roles: {}, templates: [] },
   { id: 'evenementiel', slug: { fr: 'evenementiel', en: 'events' }, icon: 'calendar', label: { fr: 'Événementiel', en: 'Events' }, comingSoon: true, roles: {}, templates: [] },
   { id: 'creatif', slug: { fr: 'creatif', en: 'creative' }, icon: 'sparkles', label: { fr: 'Créatif', en: 'Creative' }, comingSoon: true, roles: {}, templates: [] }

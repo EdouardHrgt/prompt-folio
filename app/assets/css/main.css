@@ -742,6 +742,10 @@ input[type='range'] {
   display: flex;
   gap: 0.25rem;
 }
+/* Bouton « Ajouter » : même écart que entre deux blocs. */
+.repeater-list + .btn {
+  margin-top: 0.75rem;
+}
 
 /* Tableau de tâches */
 /* min-width: 0 : sinon un tableau large élargit la page au lieu de défiler dans son cadre. */
@@ -850,6 +854,21 @@ input[type='range'] {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.75rem;
+}
+/* Ligne du prompt qui vient de changer : fond accentué qui s'estompe. */
+.preview-line.is-flash {
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  animation: preview-flash 1.2s ease-out;
+}
+@keyframes preview-flash {
+  from {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  to {
+    background: transparent;
+  }
 }
 .preview-missing {
   border-left: 3px solid var(--danger);

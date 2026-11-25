@@ -31,7 +31,7 @@ const itemErrors = (index, key) =>
     <ol v-if="items.length" class="repeater-list">
       <li v-for="(item, index) in items" :key="index" class="repeater-item">
         <div class="repeater-item-head">
-          <span>{{ t('form.item', { n: index + 1 }) }}</span>
+          <span>{{ field.itemLabel ? `${l(field.itemLabel)} ${index + 1}` : t('form.item', { n: index + 1 }) }}</span>
           <button type="button" class="btn btn-small" @click="remove(index)">{{ t('form.remove') }}</button>
         </div>
 

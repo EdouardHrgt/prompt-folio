@@ -2,6 +2,10 @@
  * GP-03 — Bilan chiffré de fin de projet (retour d'expérience).
  */
 
+import { F } from '../fields.js'
+import { PM } from './fields.js'
+import { filled, formatIs, jsonFormat, missing } from '../helpers.js'
+
 const AXES = [
   { value: 'couts', label: { fr: 'Coûts', en: 'Costs' } },
   { value: 'delais', label: { fr: 'Délais', en: 'Schedule' } },
@@ -37,64 +41,50 @@ export default {
   modes: ['FACTUEL'],
   formats: ['TEXTE', 'TABLEAU', 'SLIDES', 'JSON'],
   defaults: { MODE: 'FACTUEL', FORMAT: 'TEXTE', INFOS: 'ferme', PREVIEW: true, CITATIONS: true },
-  response: { audace: false, public: true, longueur: true, tons: ['neutre', 'formel', 'direct'] },
+  response: {
+    audace: false,
+    public: true,
+    longueur: true,
+    tons: ['neutre', 'formel', 'direct'],
+    // Le tableau et les listes imposées ne tiennent pas dans 400 mots : la longueur ne vise que la prose.
+    lengthScope: {
+      fr: 'Cette longueur s\'applique aux seules parties rédigées (analyses, message clé) ; le tableau et les listes imposées n\'y sont pas comptés, mais reste concis.',
+      en: 'This length applies only to the written parts (analyses, key message); the table and required lists are not counted, but stay concise.'
+    }
+  },
 
   fields: [
-    {
-      key: 'NOM_PROJET',
-      type: 'text',
-      required: true,
-      default: '',
-      label: { fr: 'Nom du projet', en: 'Project name' },
-      placeholder: { fr: 'Ex. : Déploiement CRM — 4 agences', en: 'E.g. CRM rollout — 4 branches' }
-    },
-    {
-      key: 'OBJECTIF_PROJET',
-      type: 'textarea',
-      required: false,
-      default: '',
-      label: { fr: 'Objectif initial du projet', en: 'Original project objective' }
-    },
-    {
-      key: 'INDICATEURS',
-      type: 'repeater',
+    PM.projectName(),
+    PM.team({
+      label: { fr: 'Équipe du projet', en: 'Project team' },
+      placeholder: { fr: 'Ex. : 1 développeur en solo ; 2 devs + 1 chef de projet', en: 'E.g. 1 solo developer; 2 devs + 1 project manager' }
+    }),
+    F.textarea('OBJECTIF_PROJET', { fr: 'Objectif initial du projet', en: 'Original project objective' }, {
+      promptLabel: { fr: 'Objectif initial', en: 'Original objective' }
+    }),
+    F.repeater('INDICATEURS', { fr: 'Indicateurs prévu / réel', en: 'Planned / actual indicators' }, [
+      F.choice('select', 'axe', { fr: 'Axe', en: 'Area' }, AXES),
+      F.text('libelle', { fr: 'Indicateur', en: 'Indicator' }, { required: true, placeholder: { fr: 'Ex. : Budget total', en: 'E.g. Total budget' } }),
+      F.text('prevu', { fr: 'Prévu', en: 'Planned' }, { required: true }),
+      F.text('reel', { fr: 'Réel', en: 'Actual' }, { required: true }),
+      F.text('unite', { fr: 'Unité', en: 'Unit' }, { placeholder: { fr: 'k€, j/h, semaines…', en: 'k€, person-days, weeks…' } }),
+      F.toggle('positif_si_hausse', { fr: 'Un dépassement est positif', en: 'Exceeding is positive' }, { help: { fr: 'Ex. : chiffre d\'affaires, taux de satisfaction', en: 'E.g. revenue, satisfaction rate' } })
+    ], {
       required: true,
       min: 1,
       max: 20,
-      default: [],
-      label: { fr: 'Indicateurs prévu / réel', en: 'Planned / actual indicators' },
       help: { fr: 'Un bloc par indicateur : budget, date de fin, jours-hommes, KPI…', en: 'One block per indicator: budget, end date, person-days, KPI…' },
-      addLabel: { fr: 'Ajouter un indicateur', en: 'Add an indicator' },
-      itemFields: [
-        { key: 'axe', type: 'select', required: true, default: 'couts', label: { fr: 'Axe', en: 'Area' }, options: AXES },
-        { key: 'libelle', type: 'text', required: true, default: '', label: { fr: 'Indicateur', en: 'Indicator' }, placeholder: { fr: 'Ex. : Budget total', en: 'E.g. Total budget' } },
-        { key: 'prevu', type: 'text', required: true, default: '', label: { fr: 'Prévu', en: 'Planned' } },
-        { key: 'reel', type: 'text', required: true, default: '', label: { fr: 'Réel', en: 'Actual' } },
-        { key: 'unite', type: 'text', required: false, default: '', label: { fr: 'Unité', en: 'Unit' }, placeholder: { fr: 'k€, j/h, semaines…', en: 'k€, person-days, weeks…' } },
-        { key: 'positif_si_hausse', type: 'toggle', required: false, default: false, label: { fr: 'Un dépassement est positif', en: 'Exceeding is positive' }, help: { fr: 'Ex. : chiffre d\'affaires, taux de satisfaction', en: 'E.g. revenue, satisfaction rate' } }
-      ]
-    },
-    {
-      key: 'AUTRES_CHIFFRES',
-      type: 'textarea',
-      required: false,
-      default: '',
-      label: { fr: 'Autres éléments chiffrés', en: 'Other figures' }
-    },
-    {
-      key: 'RETOURS',
-      type: 'repeater',
-      required: false,
-      default: [],
+      addLabel: { fr: 'Ajouter un indicateur', en: 'Add an indicator' }
+    }),
+    F.textarea('AUTRES_CHIFFRES', { fr: 'Autres éléments chiffrés', en: 'Other figures' }),
+    F.repeater('RETOURS', { fr: 'Retours qualitatifs', en: 'Qualitative feedback' }, [
+      F.choice('chips', 'type', { fr: 'Type', en: 'Type' }, RETOUR_TYPES),
+      F.textarea('texte', { fr: 'Retour', en: 'Feedback' }, { required: true })
+    ], {
       max: 20,
-      label: { fr: 'Retours qualitatifs', en: 'Qualitative feedback' },
       help: { fr: 'Réussites, difficultés, incidents, verbatims d\'équipe ou de clients.', en: 'Successes, difficulties, incidents, quotes from the team or clients.' },
-      addLabel: { fr: 'Ajouter un retour', en: 'Add feedback' },
-      itemFields: [
-        { key: 'type', type: 'chips', required: true, default: 'reussite', label: { fr: 'Type', en: 'Type' }, options: RETOUR_TYPES },
-        { key: 'texte', type: 'textarea', required: true, default: '', label: { fr: 'Retour', en: 'Feedback' } }
-      ]
-    }
+      addLabel: { fr: 'Ajouter un retour', en: 'Add feedback' }
+    })
   ],
 
   prompt: {
@@ -111,10 +101,7 @@ export default {
     data: [
       {
         tag: { fr: 'projet', en: 'project' },
-        items: [
-          { key: 'NOM_PROJET', label: { fr: 'Nom', en: 'Name' } },
-          { key: 'OBJECTIF_PROJET', label: { fr: 'Objectif initial', en: 'Original objective' } }
-        ]
+        items: ['NOM_PROJET', 'OBJECTIF_PROJET', 'EQUIPE']
       },
       {
         tag: { fr: 'indicateurs', en: 'indicators' },
@@ -129,7 +116,7 @@ export default {
                 : `- [${labelOf(AXES, r.axe, locale)}] ${r.libelle}: planned ${r.prevu} / actual ${r.reel}${unit}${pos}`
             }).join('\n')
           },
-          { key: 'AUTRES_CHIFFRES', label: { fr: 'Autres éléments chiffrés', en: 'Other figures' } }
+          'AUTRES_CHIFFRES'
         ]
       },
       {
@@ -148,10 +135,10 @@ export default {
         en: '1. Calculate the variance for each indicator: absolute variance (actual − planned) and relative variance in % ((actual − planned) / planned × 100), rounded to 1 decimal place.'
       },
       {
-        fr: '2. Attribue un statut à chaque indicateur : 🟢 conforme (écart ≤ 5 %), 🟠 écart modéré (5 à 15 %), 🔴 écart significatif (> 15 %). Quand un dépassement est positif, inverse la lecture.',
-        en: '2. Give each indicator a status: 🟢 on target (variance ≤ 5%), 🟠 moderate variance (5 to 15%), 🔴 significant variance (> 15%). When exceeding is positive, reverse the reading.'
+        fr: '2. Détermine le sens de chaque écart : un dépassement (réel > prévu) est défavorable, sauf pour les indicateurs marqués « un dépassement est positif », où c\'est un écart négatif qui est défavorable. Attribue ensuite un statut qui n\'alerte que sur le défavorable : 🟢 écart favorable ou ≤ 5 %, 🟠 écart défavorable de 5 à 15 %, 🔴 écart défavorable de plus de 15 %.',
+        en: '2. Determine the direction of each variance: exceeding (actual > planned) is unfavourable, except for indicators marked "exceeding is positive", where a negative variance is unfavourable. Then give a status that only flags unfavourable variances: 🟢 favourable or ≤ 5%, 🟠 unfavourable 5 to 15%, 🔴 unfavourable over 15%.'
       },
-      { fr: '3. Analyse les causes probables des écarts significatifs à partir des données et des retours.', en: '3. Analyse the likely causes of significant variances using the data and feedback.' },
+      { fr: '3. Analyse les causes probables des écarts 🟠 et 🔴 à partir des données et des retours.', en: '3. Analyse the likely causes of 🟠 and 🔴 variances using the data and feedback.' },
       { fr: '4. Synthétise : 3 réussites, 3 difficultés, 3 à 5 enseignements réutilisables.', en: '4. Summarise: 3 successes, 3 difficulties, 3 to 5 reusable lessons.' },
       { fr: '5. Formule des recommandations actionnables pour les prochains projets (qui, quoi, quand).', en: '5. Make actionable recommendations for future projects (who, what, when).' },
       { fr: '6. Rédige un message clé de 2 phrases pour le destinataire.', en: '6. Write a 2-sentence key message for the audience.' }
@@ -163,34 +150,36 @@ export default {
     ],
     format: [
       {
-        fr: 'Texte rédigé avec les intertitres « Synthèse », « Tableau de bord », « Analyse des écarts », « Réussites et difficultés », « Enseignements », « Recommandations ». Le tableau de bord reste un tableau.',
-        en: 'Written text with the headings "Summary", "Dashboard", "Variance analysis", "Successes and difficulties", "Lessons learned", "Recommendations". The dashboard stays a table.',
-        when: v => v.FORMAT === 'TEXTE'
+        fr: 'Texte rédigé avec les intertitres « Synthèse », « Tableau de bord », « Analyse des écarts », « Réussites et difficultés », « Enseignements », « Recommandations ». Le tableau de bord reste un tableau, avec une colonne « Sens » (favorable / défavorable).',
+        en: 'Written text with the headings "Summary", "Dashboard", "Variance analysis", "Successes and difficulties", "Lessons learned", "Recommendations". The dashboard stays a table, with a "Direction" column (favourable / unfavourable).',
+        when: formatIs('TEXTE')
       },
       {
-        fr: 'Un tableau principal | Axe | Indicateur | Prévu | Réel | Écart | Écart % | Statut | Cause principale |, puis des listes courtes : réussites, difficultés, enseignements, recommandations.',
-        en: 'A main table | Area | Indicator | Planned | Actual | Variance | Variance % | Status | Main cause |, then short lists: successes, difficulties, lessons, recommendations.',
-        when: v => v.FORMAT === 'TABLEAU'
+        fr: 'Un tableau principal | Axe | Indicateur | Prévu | Réel | Écart | Écart % | Sens | Statut | Cause probable (analyse) |, puis des listes courtes : réussites, difficultés, enseignements, recommandations.',
+        en: 'A main table | Area | Indicator | Planned | Actual | Variance | Variance % | Direction | Status | Likely cause (analysis) |, then short lists: successes, difficulties, lessons, recommendations.',
+        when: formatIs('TABLEAU')
       },
       {
         fr: '6 à 8 slides au format « Slide N — Titre », 3 à 5 puces chacune, puis « Note orateur : ». Ordre : message clé · tableau de bord · focus écarts · réussites · difficultés · enseignements · recommandations · (annexe chiffres).',
         en: '6 to 8 slides formatted "Slide N — Title", 3 to 5 bullets each, then "Speaker note:". Order: key message · dashboard · variance focus · successes · difficulties · lessons · recommendations · (appendix: figures).',
-        when: v => v.FORMAT === 'SLIDES'
+        when: formatIs('SLIDES')
       },
-      {
-        fr: 'Uniquement du JSON valide, sans texte avant ou après, conforme à ce schéma :\n{"projet": "", "message_cle": "", "indicateurs": [{"axe": "", "indicateur": "", "prevu": null, "reel": null, "ecart": null, "ecart_pct": null, "statut": "", "cause": ""}], "reussites": [], "difficultes": [], "enseignements": [], "recommandations": [{"action": "", "porteur": "", "echeance": ""}]}',
-        en: 'Valid JSON only, with no text before or after, following this schema:\n{"project": "", "key_message": "", "indicators": [{"area": "", "indicator": "", "planned": null, "actual": null, "variance": null, "variance_pct": null, "status": "", "cause": ""}], "successes": [], "difficulties": [], "lessons": [], "recommendations": [{"action": "", "owner": "", "due": ""}]}',
-        when: v => v.FORMAT === 'JSON'
-      }
+      jsonFormat({
+        fr: '{"projet": "", "message_cle": "", "indicateurs": [{"axe": "", "indicateur": "", "prevu": null, "reel": null, "ecart": null, "ecart_pct": null, "sens": "favorable | defavorable", "statut": "", "cause_probable": ""}], "reussites": [], "difficultes": [], "enseignements": [], "recommandations": [{"action": "", "porteur": "", "echeance": ""}]}',
+        en: '{"project": "", "key_message": "", "indicators": [{"area": "", "indicator": "", "planned": null, "actual": null, "variance": null, "variance_pct": null, "direction": "favourable | unfavourable", "status": "", "likely_cause": ""}], "successes": [], "difficulties": [], "lessons": [], "recommendations": [{"action": "", "owner": "", "due": ""}]}'
+      })
     ],
     constraints: [
       { fr: '- Pas de jugement sur des personnes : on analyse des processus et des décisions.', en: '- No judgement of individuals: analyse processes and decisions.' },
-      { fr: '- Garde les unités d\'origine et précise-les dans chaque colonne ou ligne.', en: '- Keep the original units and state them in every column or line.' }
+      { fr: '- Garde les unités d\'origine et précise-les dans chaque colonne ou ligne.', en: '- Keep the original units and state them in every column or line.' },
+      { fr: '- Les responsables des recommandations font partie de l\'équipe indiquée : n\'invente pas de rôle qui n\'existe pas dans le projet.', en: '- The owners of the recommendations belong to the team given: do not invent roles that do not exist in the project.', when: filled('EQUIPE') },
+      { fr: '- Équipe non précisée : désigne les responsables par des rôles génériques et signale-le dans « Hypothèses retenues ».', en: '- Team not specified: name owners by generic roles and say so in "Assumptions".', when: missing('EQUIPE') }
     ],
     quality: [
       { fr: '- [ ] Chaque écart % est recalculé et cohérent avec le prévu et le réel.', en: '- [ ] Every variance % is recalculated and consistent with planned and actual.' },
       { fr: '- [ ] Chaque écart 🔴 a au moins une cause et une recommandation associées.', en: '- [ ] Every 🔴 variance has at least one cause and one recommendation.' },
-      { fr: '- [ ] Le message clé se comprend sans lire le reste.', en: '- [ ] The key message is understandable without reading the rest.' }
+      { fr: '- [ ] Le message clé se comprend sans lire le reste.', en: '- [ ] The key message is understandable without reading the rest.' },
+      { fr: '- [ ] Seuls les écarts défavorables portent un statut 🟠 ou 🔴.', en: '- [ ] Only unfavourable variances have a 🟠 or 🔴 status.' }
     ]
   }
 }

@@ -14,7 +14,7 @@ const { t } = useLocale()
         <div class="footer-text small muted">
           <p class="footer-credit">
             {{ t('footer.credit') }}
-            <a href="https://edouard-herrengt.com/" target="_blank" rel="noopener">Dev Ed</a>
+            <a href="https://edouard-herrengt.com/" target="_blank" rel="noopener" class="author">Dev Ed</a>
           </p>
           <NuxtLink to="/mentions-legales" class="footer-legal">{{ t('legal.title') }}</NuxtLink>
         </div>

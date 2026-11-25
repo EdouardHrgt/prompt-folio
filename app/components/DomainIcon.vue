@@ -31,6 +31,11 @@ defineProps({ name: { type: String, required: true } })
       <polyline points="3 17 9 11 13 15 21 7" />
       <polyline points="15 7 21 7 21 13" />
     </template>
+    <!-- Rédaction & communication : stylo -->
+    <template v-else-if="name === 'pen'">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </template>
     <!-- Développement : chevrons de code -->
     <template v-else-if="name === 'code'">
       <polyline points="8 6 2 12 8 18" />

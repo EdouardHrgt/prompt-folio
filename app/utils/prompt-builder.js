@@ -52,11 +52,16 @@ export function getFormSteps (template) {
   const domain = getDomain(template.domain)
   const common = buildCommonFields(template, domain.roles)
   // Le contexte (seule étape vraiment à remplir) vient en premier ; les autres ont des valeurs par défaut.
+  // `summary` : ce que la section affiche une fois repliée —
+  //   'filled'        → « n / total champs renseignés »
+  //   'choices'       → les choix faits (pastilles, cartes, listes…)
+  //   { count: KEY }  → le nombre d'éléments du répéteur KEY
+  // `required` : section à remplir (statut « Complet ») ; `optional` : section facultative.
   return [
-    { id: 'contexte', label: { fr: 'Votre contexte', en: 'Your context' }, fields: template.fields },
-    { id: 'role', label: { fr: 'Qui doit vous répondre ?', en: 'Who should answer you?' }, fields: common.role },
-    { id: 'reponse', label: { fr: 'Votre réponse', en: 'Your answer' }, fields: common.reponse },
-    { id: 'sources', label: { fr: 'Vos sources', en: 'Your sources' }, optional: true, fields: common.sources }
+    { id: 'contexte', label: { fr: 'Votre contexte', en: 'Your context' }, required: true, summary: 'filled', fields: template.fields },
+    { id: 'role', label: { fr: 'Qui doit vous répondre ?', en: 'Who should answer you?' }, summary: 'choices', fields: common.role },
+    { id: 'reponse', label: { fr: 'Votre réponse', en: 'Your answer' }, summary: 'choices', fields: common.reponse },
+    { id: 'sources', label: { fr: 'Vos sources', en: 'Your sources' }, optional: true, summary: { count: 'SOURCES' }, fields: common.sources }
   ]
 }
 
@@ -68,10 +73,23 @@ export function getInitialValues (template, locale = 'fr') {
   const values = {}
   for (const field of allFields(template)) {
     values[field.key] = structuredClone(field.default ?? (['repeater', 'table', 'tags'].includes(field.type) ? [] : ''))
+    // `initialItems: n` : le répéteur ou le tableau démarre avec n éléments vides (ex. 2 offres à comparer).
+    if (field.initialItems && !values[field.key].length) {
+      for (let i = 0; i < field.initialItems; i++) values[field.key].push(createItem(field, values[field.key]))
+    }
   }
   values.MODE = template.defaults.MODE
+  values.FORMAT ??= template.defaults.FORMAT // utile quand le template n'a qu'un format (pas de champ)
   if (values.LANGUE == null || values.LANGUE === '') values.LANGUE = locale
   return values
+}
+
+/**
+ * Texte de champ (label, placeholder, help, promptLabel) : objet { fr, en } ou fonction des valeurs,
+ * pour adapter un libellé à un autre choix (ex. « Prix » devient « Taux et mensualité » pour un crédit).
+ */
+export function fieldText (text, values) {
+  return typeof text === 'function' ? text(values) : text
 }
 
 /** `item` est fourni pour les sous-champs d'un répéteur : showIf(item, values). */
@@ -104,16 +122,30 @@ const MSG = {
   required: { fr: 'Ce champ est obligatoire.', en: 'This field is required.' },
   min: { fr: 'Ajoutez au moins {n} élément(s).', en: 'Add at least {n} item(s).' },
   duplicate: { fr: 'Identifiant en double : {id}.', en: 'Duplicate ID: {id}.' },
-  unknownRef: { fr: 'La tâche {id} dépend d\'une tâche inexistante : {ref}.', en: 'Task {id} depends on a non-existent task: {ref}.' },
-  selfRef: { fr: 'La tâche {id} ne peut pas dépendre d\'elle-même.', en: 'Task {id} cannot depend on itself.' },
-  cycle: { fr: 'Dépendance circulaire : {path}.', en: 'Circular dependency: {path}.' }
+  unknownRef: { fr: 'La ligne {id} fait référence à une ligne inexistante : {ref}.', en: 'Row {id} refers to a non-existent row: {ref}.' },
+  selfRef: { fr: 'La ligne {id} ne peut pas faire référence à elle-même.', en: 'Row {id} cannot refer to itself.' },
+  cycle: { fr: 'Dépendance circulaire : {path}.', en: 'Circular dependency: {path}.' },
+  sum: { fr: 'Le total de la colonne « {label} » doit faire {n} (actuellement {total}).', en: 'The "{label}" column must add up to {n} (currently {total}).' }
+}
+
+/** Total d'une colonne numérique (`field.sum = { key, equals }`), ou null si la colonne est vide. */
+export function columnTotal (field, rows = []) {
+  if (!field.sum) return null
+  const nums = rows.map(r => Number(r[field.sum.key])).filter(n => Number.isFinite(n))
+  return nums.length ? Math.round(nums.reduce((a, b) => a + b, 0) * 100) / 100 : null
 }
 
 const msg = (key, locale, vars = {}) =>
   localize(MSG[key], locale).replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '')
 
-function findCycle (rows) {
-  const graph = Object.fromEntries(rows.map(r => [r.id, r.predecesseurs || []]))
+/** Sous-champ qui référence d'autres lignes (`optionsFrom: 'rows.<idKey>'`), ou undefined. */
+export function getRefField (field) {
+  const ref = field.itemFields?.find(s => s.optionsFrom?.startsWith('rows.'))
+  return ref ? { refKey: ref.key, idKey: ref.optionsFrom.slice(5), refField: ref } : undefined
+}
+
+function findCycle (rows, idKey, refKey) {
+  const graph = Object.fromEntries(rows.map(r => [r[idKey], r[refKey] || []]))
   const state = {}
   const stack = []
   const visit = id => {
@@ -130,7 +162,7 @@ function findCycle (rows) {
     return null
   }
   for (const r of rows) {
-    const c = visit(r.id)
+    const c = visit(r[idKey])
     if (c) return c
   }
   return null
@@ -161,20 +193,30 @@ export function validatePrompt (template, values, locale = 'fr') {
         }
       })
 
-      // Contrôles spécifiques aux réseaux de tâches (IDs + prédécesseurs).
-      if (field.itemFields.some(s => s.optionsFrom === 'rows.id')) {
-        const ids = value.map(r => r.id)
+      // Lignes qui se référencent entre elles (ex. tâches et prédécesseurs) : IDs uniques,
+      // références existantes, pas d'auto-référence ni de boucle.
+      const refs = getRefField(field)
+      if (refs) {
+        const { idKey, refKey } = refs
+        const ids = value.map(r => r[idKey])
         ids.forEach((id, index) => {
-          if (ids.indexOf(id) !== index) errors.push({ key: field.key, index, itemKey: 'id', message: msg('duplicate', locale, { id }) })
+          if (ids.indexOf(id) !== index) errors.push({ key: field.key, index, itemKey: idKey, message: msg('duplicate', locale, { id }) })
         })
         value.forEach((row, index) => {
-          for (const ref of row.predecesseurs || []) {
-            if (ref === row.id) errors.push({ key: field.key, index, itemKey: 'predecesseurs', message: msg('selfRef', locale, { id: row.id }) })
-            else if (!ids.includes(ref)) errors.push({ key: field.key, index, itemKey: 'predecesseurs', message: msg('unknownRef', locale, { id: row.id, ref }) })
+          for (const ref of row[refKey] || []) {
+            if (ref === row[idKey]) errors.push({ key: field.key, index, itemKey: refKey, message: msg('selfRef', locale, { id: row[idKey] }) })
+            else if (!ids.includes(ref)) errors.push({ key: field.key, index, itemKey: refKey, message: msg('unknownRef', locale, { id: row[idKey], ref }) })
           }
         })
-        const cycle = findCycle(value)
+        const cycle = findCycle(value, idKey, refKey)
         if (cycle) errors.push({ key: field.key, message: msg('cycle', locale, { path: cycle.join(' → ') }) })
+      }
+
+      // Colonne dont le total est imposé (ex. poids des critères = 100).
+      const total = columnTotal(field, value)
+      if (total !== null && total !== field.sum.equals) {
+        const label = localize(field.itemFields.find(s => s.key === field.sum.key)?.label, locale)
+        errors.push({ key: field.key, message: msg('sum', locale, { label, n: field.sum.equals, total }) })
       }
     }
   }
@@ -185,18 +227,25 @@ export function validatePrompt (template, values, locale = 'fr') {
 
 function makeRenderer (template, values, locale) {
   const fields = Object.fromEntries(allFields(template).map(f => [f.key, f]))
-  return key => {
+  const render = key => {
     const value = values[key]
     if (isEmpty(value)) return ''
     const field = fields[key]
     if (field?.options) {
       const opt = field.options.find(o => o.value === value)
-      if (opt) return localize(opt.prompt ?? opt.label, locale)
+      // Une option peut renvoyer vers un autre champ (« Autre » → {{HORIZON_AUTRE}}).
+      if (opt) return interpolate(localize(opt.prompt ?? opt.label, locale), render)
+    }
+    // Choix multiple : libellés « prompt » des options cochées.
+    if (Array.isArray(value) && field?.options) {
+      return value.map(v => field.options.find(o => o.value === v)).filter(Boolean)
+        .map(o => interpolate(localize(o.prompt ?? o.label, locale), render)).join(', ')
     }
     if (Array.isArray(value)) return value.join(', ')
     if (field?.type === 'date') return formatDate(value, locale)
     return String(value).trim()
   }
+  return render
 }
 
 // Une valeur vide (champ obligatoire pas encore rempli) s'affiche « […] » dans l'aperçu.
@@ -216,19 +265,30 @@ function section (headingKey, body, locale, suffix = '') {
   return `### ${localize(HEADINGS[headingKey], locale)}${suffix}\n${content}`
 }
 
+/**
+ * Section DONNÉES : un bloc <tag> par entrée de `template.prompt.data`.
+ * Un élément peut être une simple clé ('OBJECTIF') — le libellé vient alors du champ
+ * (`promptLabel`, sinon `label`) — ou un objet { key, label?, render? }.
+ */
 function renderData (template, values, locale, render) {
   const sep = locale === 'fr' ? ' : ' : ': '
+  const fields = Object.fromEntries(allFields(template).map(f => [f.key, f]))
   const blocks = []
   for (const block of template.prompt.data || []) {
     const lines = []
-    for (const item of block.items) {
+    for (const entry of block.items) {
+      const item = typeof entry === 'string' ? { key: entry } : entry
       const raw = values[item.key]
       if (isEmpty(raw)) continue
+      // Un champ masqué (showIf) garde sa valeur mais ne doit pas apparaître dans le prompt.
+      if (fields[item.key] && !isFieldVisible(fields[item.key], values)) continue
       if (typeof item.render === 'function') {
-        lines.push(item.render(raw, values, locale))
+        const text = item.render(raw, values, locale)
+        if (text) lines.push(text)
       } else {
         const text = render(item.key)
-        const label = localize(item.label, locale)
+        const field = fields[item.key]
+        const label = localize(fieldText(item.label ?? field?.promptLabel ?? field?.label, values), locale)
         lines.push(text.includes('\n') ? `${label}${sep.trimEnd()}\n${text}` : `${label}${sep}${text}`)
       }
     }
@@ -329,9 +389,11 @@ export function buildPrompt (template, input, { locale = 'fr' } = {}) {
   out.push(section('format', [
     ...fragments(p.format, values, locale, render),
     !isEmpty(values.PUBLIC) ? L(BLOCKS.audience) : '',
-    template.response?.longueur && !isEmpty(values.LONGUEUR) && !NO_LENGTH_FORMATS.includes(values.FORMAT) ? L(BLOCKS.length) : '',
+    template.response?.longueur && !isEmpty(values.LONGUEUR) && !NO_LENGTH_FORMATS.includes(values.FORMAT)
+      ? [L(BLOCKS.length), template.response.lengthScope ? L(template.response.lengthScope) : ''].filter(Boolean).join(' ')
+      : '',
     template.response?.tons && !isEmpty(values.TON) ? L(BLOCKS.tone) : '',
-    L(BLOCKS.language)
+    L(values.LANGUE && values.LANGUE !== locale ? BLOCKS.languageTranslate : BLOCKS.language)
   ], locale, locale === 'fr' ? ` : ${formatLabel}` : `: ${formatLabel}`))
 
   // Exemple
@@ -344,6 +406,7 @@ export function buildPrompt (template, input, { locale = 'fr' } = {}) {
   out.push(section('constraints', [
     `- ${localize(BLOCKS.constraints[0], locale)}`,
     `- ${localize(MACHINE_FORMATS.includes(values.FORMAT) ? BLOCKS.constraintsMachine : BLOCKS.constraints[1], locale)}`,
+    `- ${localize(BLOCKS.constraints[2], locale)}`,
     ...fragments(p.constraints, values, locale, render)
   ], locale))
 

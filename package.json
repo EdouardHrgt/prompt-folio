@@ -8,7 +8,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test:prompts": "node scripts/test-prompts.mjs"
+    "test:prompts": "node scripts/test-prompts.mjs",
+    "test:snapshot": "node scripts/snapshot-prompts.mjs"
   },
   "dependencies": {
     "nuxt": "^4.6.4",

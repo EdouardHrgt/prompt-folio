@@ -1,6 +1,6 @@
 import { FIELD_GROUPS } from '~/data/prompts/common.js'
 
-const CHOICE_TYPES = ['chips', 'segmented', 'cards', 'select', 'combobox']
+const CHOICE_TYPES = ['chips', 'multichips', 'segmented', 'cards', 'select', 'combobox']
 
 const isEmpty = v => v == null || (typeof v === 'string' && v.trim() === '') || (Array.isArray(v) && v.length === 0)
 
@@ -67,25 +67,27 @@ export function usePromptForm (template) {
 
   function optionLabel (field, value) {
     if (field.type === 'toggle') return value ? l(field.label) : ''
+    if (Array.isArray(value)) return value.map(v => optionLabel(field, v)).join(', ')
     const opt = field.options?.find(o => o.value === value)
     return opt ? l(opt.label) : (typeof value === 'string' ? value : '')
   }
 
-  /** Résumé affiché quand la section est repliée. */
+  /** Résumé affiché quand la section est repliée (selon `step.summary`, voir getFormSteps). */
   function summary (step) {
-    if (step.id === 'contexte') {
+    if (step.summary === 'filled') {
       const fields = visibleFields(step)
       const filled = fields.filter(f => !isEmpty(values[f.key])).length
       return t('summary.filled', { n: filled, total: fields.length })
     }
-    if (step.id === 'sources') {
-      const n = (values.SOURCES || []).length
+    if (step.summary?.count) {
+      const n = (values[step.summary.count] || []).length
       return n ? t('summary.sources', { n }) : t('summary.noSources')
     }
-    const parts = visibleFields(step)
+    const fields = visibleFields(step)
+    const parts = fields
       .filter(f => CHOICE_TYPES.includes(f.type) && !isEmpty(values[f.key]))
       .map(f => optionLabel(f, values[f.key]))
-    if (step.id === 'reponse' && values.PREVIEW) parts.push(t('summary.preview'))
+    if (fields.some(f => f.key === 'PREVIEW') && values.PREVIEW) parts.push(t('summary.preview'))
     return parts.filter(Boolean).join(' · ')
   }
 
@@ -95,7 +97,7 @@ export function usePromptForm (template) {
   function status (step) {
     const n = new Set(stepErrors(step).map(e => `${e.key}-${e.index ?? ''}`)).size
     if (n) return { type: 'todo', text: t('status.toFill', { n }) }
-    if (step.id === 'contexte') return { type: 'done', text: '✓ ' + t('status.done') }
+    if (step.required) return { type: 'done', text: '✓ ' + t('status.done') }
     const changed = step.fields.some(f => f.key !== 'LANGUE' && JSON.stringify(values[f.key]) !== JSON.stringify(initial[f.key]))
     if (!changed) return step.optional ? { type: 'optional', text: t('status.optional') } : { type: 'default', text: t('status.default') }
     return { type: 'custom', text: '✓ ' + t('status.custom') }
@@ -114,9 +116,9 @@ export function usePromptForm (template) {
       return true
     }).map(e => {
       const field = allFields.find(f => f.key === e.key)
-      const parts = [l(field?.label)]
+      const parts = [l(fieldText(field?.label, values))]
       if (e.index != null) parts.push(`n°${e.index + 1}`)
-      if (e.itemKey) parts.push(l(field?.itemFields?.find(s => s.key === e.itemKey)?.label))
+      if (e.itemKey) parts.push(l(fieldText(field?.itemFields?.find(s => s.key === e.itemKey)?.label, values)))
       return { ...e, step: stepByKey[e.key], label: parts.filter(Boolean).join(' · ') }
     })
   })

@@ -26,6 +26,50 @@ async function copy () {
   setTimeout(() => { copyState.value = '' }, 2500)
 }
 
+// ─── Surbrillance : les lignes qui viennent de changer s'allument puis s'estompent ───
+const FLASH_MS = 1200
+const textEl = ref(null)
+const lines = computed(() => props.prompt.split('\n'))
+const flashed = ref(new Set()) // indices des lignes à mettre en valeur
+const flashId = ref(0) // change la clé des lignes allumées pour relancer l'animation
+let flashTimer
+
+watch(() => props.prompt, (next, prev) => {
+  // Lignes absentes de l'ancien prompt (comptées une à une : une ligne répétée reste repérée).
+  const before = new Map()
+  for (const line of prev.split('\n')) before.set(line, (before.get(line) || 0) + 1)
+  const changed = new Set()
+  next.split('\n').forEach((line, i) => {
+    const left = before.get(line) || 0
+    if (left) before.set(line, left - 1)
+    else if (line.trim()) changed.add(i)
+  })
+  // Changement de langue, réinitialisation, brouillon restauré : pas de surbrillance générale.
+  if (!changed.size || changed.size > lines.value.length / 2) {
+    flashed.value = new Set()
+    return
+  }
+  flashed.value = changed
+  flashId.value++
+  clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => { flashed.value = new Set() }, FLASH_MS)
+  nextTick(scrollToFlash)
+})
+
+// Fait défiler l'aperçu (pas la page) jusqu'à la première ligne allumée si elle est hors de vue.
+function scrollToFlash () {
+  const box = textEl.value
+  const first = box?.querySelector('.is-flash')
+  if (!first) return
+  const view = box.getBoundingClientRect()
+  const line = first.getBoundingClientRect()
+  if (!view.height || (line.top >= view.top && line.bottom <= view.bottom)) return
+  const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  box.scrollTo({ top: box.scrollTop + line.top - view.top - view.height / 3, behavior: smooth ? 'smooth' : 'auto' })
+}
+
+onBeforeUnmount(() => clearTimeout(flashTimer))
+
 function download () {
   const blob = new Blob([props.prompt], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -51,7 +95,7 @@ function download () {
       </ul>
     </div>
 
-    <pre class="preview-text" tabindex="0">{{ prompt }}</pre>
+    <pre ref="textEl" class="preview-text" tabindex="0"><span v-for="(line, i) in lines" :key="flashed.has(i) ? `f${flashId}-${i}` : i" class="preview-line" :class="{ 'is-flash': flashed.has(i) }">{{ line }}{{ i < lines.length - 1 ? '\n' : '' }}</span></pre>
 
     <p v-if="attachReminder" class="notice small">{{ t('preview.attachReminder') }}</p>
 

@@ -52,6 +52,14 @@ export default {
       en: 'You are an experienced Scrum Master and agile coach, used to breaking work into deliverable increments and facilitating team ceremonies.'
     }
   },
+  'porte-parole': {
+    label: { fr: 'Porte-parole / partenariats', en: 'Spokesperson / partnerships' },
+    hint: { fr: 'Présenter un projet à une communauté ou un partenaire', en: 'Present a project to a community or a partner' },
+    prompt: {
+      fr: 'Tu es un chargé de partenariats expérimenté, habitué à présenter un projet à une communauté, une association ou un partenaire externe pour obtenir son soutien.',
+      en: 'You are an experienced partnerships lead, used to presenting a project to a community, an association or an external partner to win their support.'
+    }
+  },
   'directeur-programme': {
     label: { fr: 'Directeur de programme', en: 'Programme director' },
     hint: { fr: 'Vision d\'ensemble, arbitrages', en: 'Big picture, trade-offs' },

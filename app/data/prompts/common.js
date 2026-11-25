@@ -14,7 +14,12 @@
 /** Libellés des groupes de champs (attribut `group` d'un champ). */
 export const FIELD_GROUPS = {
   contraintes: { fr: 'Contraintes', en: 'Constraints' },
-  notes: { fr: 'Notes de projet', en: 'Project notes' }
+  notes: { fr: 'Notes de projet', en: 'Project notes' },
+  offre: { fr: 'Votre offre', en: 'Your offer' },
+  cible: { fr: 'Votre interlocuteur', en: 'Your prospect' },
+  besoin: { fr: 'Votre besoin', en: 'Your need' },
+  marges: { fr: 'Vos marges de manœuvre', en: 'Your room for manoeuvre' },
+  objet: { fr: 'Ce que vous vendez', en: 'What you are selling' }
 }
 
 // ─── Secteurs d'activité (spécialisent le rôle) ──────────────────────────────
@@ -31,6 +36,8 @@ export const SECTEURS = [
   { value: 'public', label: { fr: 'Secteur public / Collectivités', en: 'Public sector' } },
   { value: 'education', label: { fr: 'Éducation / Formation', en: 'Education / Training' } },
   { value: 'evenementiel', label: { fr: 'Événementiel / Culture', en: 'Events / Culture' } },
+  { value: 'jeux-video', label: { fr: 'Jeux vidéo', en: 'Video games' } },
+  { value: 'communaute', label: { fr: 'Communauté en ligne', en: 'Online community' } },
   { value: 'marketing', label: { fr: 'Marketing / Communication', en: 'Marketing / Communications' } },
   { value: 'immobilier', label: { fr: 'Immobilier', en: 'Real estate' } },
   { value: 'agro', label: { fr: 'Agroalimentaire', en: 'Food & beverage' } },
@@ -243,7 +250,11 @@ export const TONS = {
   direct: { label: { fr: 'Direct', en: 'Direct' }, prompt: { fr: 'direct', en: 'direct' } },
   inspirant: { label: { fr: 'Inspirant', en: 'Inspiring' }, prompt: { fr: 'inspirant', en: 'inspiring' } },
   pedagogique: { label: { fr: 'Pédagogique', en: 'Educational' }, prompt: { fr: 'pédagogique', en: 'educational' } },
-  persuasif: { label: { fr: 'Persuasif', en: 'Persuasive' }, prompt: { fr: 'persuasif', en: 'persuasive' } }
+  persuasif: { label: { fr: 'Persuasif', en: 'Persuasive' }, prompt: { fr: 'persuasif', en: 'persuasive' } },
+  consultatif: { label: { fr: 'Consultatif', en: 'Consultative' }, prompt: { fr: 'consultatif (à l\'écoute, orienté conseil)', en: 'consultative (attentive, advice-led)' } },
+  enthousiaste: { label: { fr: 'Enthousiaste', en: 'Enthusiastic' }, prompt: { fr: 'enthousiaste', en: 'enthusiastic' } },
+  premium: { label: { fr: 'Premium', en: 'Premium' }, prompt: { fr: 'premium (sobre, exigeant, haut de gamme)', en: 'premium (understated, demanding, high-end)' } },
+  chaleureux: { label: { fr: 'Chaleureux', en: 'Warm' }, prompt: { fr: 'chaleureux', en: 'warm' } }
 }
 
 /** Langue de la RÉPONSE (indépendante de la langue de l'interface et du prompt). */
@@ -307,7 +318,7 @@ export function buildCommonFields (template, roles) {
       key: 'POSTURE',
       type: 'chips',
       required: false,
-      default: 'expert',
+      default: template.defaults?.POSTURE ?? 'expert',
       label: { fr: 'Posture', en: 'Stance' },
       options: POSTURES
     },
@@ -392,7 +403,8 @@ export function buildCommonFields (template, roles) {
     },
     options: INFOS
   })
-  reponse.push({
+  // Un seul format possible : pas de choix à proposer (le prompt garde la section format).
+  if (template.formats.length > 1) reponse.push({
     key: 'FORMAT',
     type: 'cards',
     required: true,

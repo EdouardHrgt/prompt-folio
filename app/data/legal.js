@@ -9,6 +9,7 @@
 export const LEGAL_INFO = {
   editor: 'Edouard Herrengt',
   website: 'https://edouard-herrengt.com/',
+  contact: 'https://edouard-herrengt.com/contact',
   host: '[À compléter : nom de l\'hébergeur, adresse, téléphone — ex. Netlify, Vercel, OVHcloud…]',
   updated: '2026-11-23'
 }
@@ -62,7 +63,7 @@ export const LEGAL_SECTIONS = {
     },
     {
       title: 'Vos droits',
-      text: ['Promptfolio ne collectant aucune donnée personnelle, aucun traitement n\'est effectué à votre sujet. Pour toute question, vous pouvez me contacter via {website}']
+      text: ['Promptfolio ne collectant aucune donnée personnelle, aucun traitement n\'est effectué à votre sujet. Pour toute question, vous pouvez me contacter via {contact}']
     }
   ],
 
@@ -113,7 +114,7 @@ export const LEGAL_SECTIONS = {
     },
     {
       title: 'Your rights',
-      text: ['As Promptfolio collects no personal data, no processing is carried out about you. For any question, you can reach me via {website}']
+      text: ['As Promptfolio collects no personal data, no processing is carried out about you. For any question, you can reach me via {contact}']
     }
   ]
 }

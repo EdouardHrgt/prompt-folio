@@ -90,6 +90,11 @@ export const BLOCKS = {
     fr: 'Rédige ta réponse en {{LANGUE}}.',
     en: 'Write your answer in {{LANGUE}}.'
   },
+  /** Variante quand la langue de réponse diffère de celle du prompt. */
+  languageTranslate: {
+    fr: 'Rédige ta réponse en {{LANGUE}}, y compris les titres, intitulés et phrases imposés dans ce prompt (traduis-les), les étiquettes entre crochets comme [INFO MANQUANTE] ou [PROPOSITION], ainsi que la phrase de fin de l\'aperçu.',
+    en: 'Write your answer in {{LANGUE}}, including the headings, labels and set phrases required by this prompt (translate them), the bracketed tags such as [MISSING INFO] or [SUGGESTION], as well as the closing sentence of the preview.'
+  },
   length: {
     fr: 'Longueur attendue : {{LONGUEUR}}.',
     en: 'Expected length: {{LONGUEUR}}.'
@@ -112,6 +117,10 @@ export const BLOCKS = {
     {
       fr: 'Si une information utile manque, choisis une hypothèse raisonnable et indique-la dans une ligne « Hypothèses retenues » en tête de réponse. Si elle est indispensable, pose au maximum 3 questions et arrête-toi.',
       en: 'If useful information is missing, make a reasonable assumption and state it in an "Assumptions" line at the top of your answer. If it is essential, ask at most 3 questions and stop.'
+    },
+    {
+      fr: 'Écris les formules et les calculs en texte simple, sans notation LaTeX, pour que la réponse reste lisible une fois copiée ailleurs.',
+      en: 'Write formulas and calculations in plain text, without LaTeX notation, so the answer stays readable once copied elsewhere.'
     }
   ],
 
